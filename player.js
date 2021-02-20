@@ -67,30 +67,47 @@ function addTooltip(stepId) {
 
     stepSelector = jQuery(step.action.selector);
     if (stepSelector) {
-        jQuery(".sttip").remove();
-        stepSelector.after(stepTooltip);
+        if (step.action.onlyOneTip) { // Remove previous tooltip if only one tip is allowed
+            jQuery(".sttip").remove();
+        }
 
-        // Add event handlers for tooltip buttons
-        document.querySelector('[data-iridize-role="prevBt"]').onclick = () => {
-            previousStep = guideSteps.filter(step => (step.followers[0] || {})["next"] === stepId)[0]
-            if (previousStep) {
-                addTooltip(previousStep.id);
+        if (!getTooltipElement(step.id)) { // Check and add tooltip if not already present when multiple tip are allowed.
+            stepSelector.after(stepTooltip);
+
+            // Add event handlers for tooltip buttons
+            tooltipEl = getTooltipElement(step.id);
+            tooltipEl.querySelector('[data-iridize-role="prevBt"]').onclick = () => {
+                previousStep = guideSteps.filter(step => (step.followers[0] || {})["next"] === stepId)[0]
+                if (previousStep) {
+                    addTooltip(previousStep.id);
+                }
+                // Reached first step of the guide
+                else if (confirm("You have reached the beginning of the guide\nClick OK to close the guide.\nClick Cancel to watch guide again.")) {
+                    jQuery(".sttip").remove();
+                }
             }
-            // Reached first step of the guide
-            else if (confirm("You have reached the beginning of the guide\nClick OK to close the guide.\nClick Cancel to watch guide again.")) {
+
+            tooltipEl.querySelector('[data-iridize-role="nextBt"]').onclick = () => {
+                addTooltip(step.followers[0].next);
+            }
+
+            tooltipEl.querySelector('[data-iridize-role="closeBt"]').onclick = () => {
                 jQuery(".sttip").remove();
             }
         }
-
-        document.querySelector('[data-iridize-role="nextBt"]').onclick = () => {
-            addTooltip(step.followers[0].next);
-        }
-
-        document.querySelector('[data-iridize-role="closeBt"]').onclick = () => {
-            jQuery(".sttip").remove();
-        }
     }
 }
+
+
+/**
+ * Get tooltip element for a step id.
+ *
+ * @param {String}      stepId
+*/
+function getTooltipElement(stepId) {
+    return document.querySelector('[guided-learning-tooltip-step-id="'+stepId+'"]')
+}
+
 
 /**
  * Generate tooltip data for given step.
@@ -104,9 +121,11 @@ function addTooltip(stepId) {
 */
 function generateTooltip(step) {
     var tiplate = tiplates[step.action.type];
-    var tooltipContent = '<div class="sttip"><div class="tooltip in"><div class="tooltip-arrow"></div><div class="tooltip-arrow second-arrow"></div><div class="popover-inner"></div>' + tiplate + '</div></div></div>';
+    var tooltipContent = '<div class="tooltip in"><div class="tooltip-arrow"></div><div class="tooltip-arrow second-arrow"></div><div class="popover-inner"></div>' + tiplate + '</div></div>';
 
     var el = document.createElement('div');
+    el.setAttribute("class", "sttip");
+    el.setAttribute("guided-learning-tooltip-step-id", step.id);
     // TODO: Improve styling for tooltip positioning
     el.setAttribute("style", "display: inline-block; position: absolute;");
     el.innerHTML = tooltipContent;
