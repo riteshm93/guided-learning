@@ -1,0 +1,13 @@
+{
+    "name": "guided-learning-solution",
+    "version": "0.0.1",
+    "description": "Guided Learning Solution POC",
+    "scripts": {
+        "start": "./node_modules/.bin/http-server"
+    },
+    "author": "Ritesh Malani",
+    "devDependencies": {},
+    "dependencies": {
+        "http-server": "^0.12.3"
+    }
+}
