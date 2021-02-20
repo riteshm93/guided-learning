@@ -42,9 +42,12 @@ function processGuideData(guideDataResponse) {
 
         guideSteps = guideDataResponse.data.structure.steps;
         tiplates = guideDataResponse.data.tiplates;
-        // TODO: handle wrong selector for first step
-        // addTooltip(guideSteps[0].id);
-        addTooltip(guideSteps[1].id);
+
+        // TODO: Remove this hardcoded value once data is updated
+        // Hardcoded value for first step selector
+        guideSteps[0].action.selector = ".lnXdpd"
+
+        addTooltip(guideSteps[0].id);
     } else {
         alert("Failed to get Guided Learning Steps");
     }
@@ -52,7 +55,7 @@ function processGuideData(guideDataResponse) {
 
 
 /**
- * Add tooltip for given step id
+ * Add tooltip for given step id.
  * 
  * @param {String}      stepId
 */
@@ -65,14 +68,35 @@ function addTooltip(stepId) {
     stepSelector = jQuery(step.action.selector);
     if (stepSelector) {
         jQuery(".sttip").remove();
-        stepSelector[0].after(stepTooltip);
+        stepSelector.after(stepTooltip);
+
+        // Add event handlers for tooltip buttons
+        document.querySelector('[data-iridize-role="prevBt"]').onclick = () => {
+            previousStep = guideSteps.filter(step => (step.followers[0] || {})["next"] === stepId)[0]
+            if (previousStep) {
+                addTooltip(previousStep.id);
+            }
+            // Reached first step of the guide
+            else if (confirm("You have reached the beginning of the guide\nClick OK to close the guide.\nClick Cancel to watch guide again.")) {
+                jQuery(".sttip").remove();
+            }
+        }
+
+        document.querySelector('[data-iridize-role="nextBt"]').onclick = () => {
+            addTooltip(step.followers[0].next);
+        }
+
+        document.querySelector('[data-iridize-role="closeBt"]').onclick = () => {
+            jQuery(".sttip").remove();
+        }
     }
 }
 
 /**
- * Generate tooltip data for given step
+ * Generate tooltip data for given step.
  * 
- * Uses step data in default template and tiplate to generate tooltip HTML data 
+ * Uses step data in default template and tiplate to generate tooltip HTML data.
+ * Also add class based on step classes and placement data.
  * 
  * @param {Object}      step
  * 
@@ -83,9 +107,14 @@ function generateTooltip(step) {
     var tooltipContent = '<div class="sttip"><div class="tooltip in"><div class="tooltip-arrow"></div><div class="tooltip-arrow second-arrow"></div><div class="popover-inner"></div>' + tiplate + '</div></div></div>';
 
     var el = document.createElement('div');
+    // TODO: Improve styling for tooltip positioning
+    el.setAttribute("style", "display: inline-block; position: absolute;");
     el.innerHTML = tooltipContent;
 
     tooltipEl = el.querySelector('.tooltip');
+    tooltipEl.classList.add(...step.action.classes.split(" "));
+    tooltipEl.classList.add(step.action.placement);
+
     el.querySelector('[data-iridize-role="stepCount"]').append(step.action.stepOrdinal);
     el.querySelector('[data-iridize-role="stepsCount"]').append(guideSteps.length);
     el.querySelector('[data-iridize-id="content"]').innerHTML = step.action.contents["#content"];
