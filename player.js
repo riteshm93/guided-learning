@@ -68,12 +68,13 @@ function addTooltip(stepId, useTimer=false) {
     step = guideSteps.filter(step => step.id === stepId)[0];
 
     if (!step) {
-        // TODO: (Enhancement) Ideally this should not happen, capture error using sentry or some other tool for such cases
+        // TODO: (Enhancement) Ideally this should not happen, capture error using sentry or some other tool for such cases.
         alert("Invalid step");
         return;
     }
 
     if (step.action.type == "closeScenario") {
+        // TODO: (Enhancement) May be alert or show a notification that the guide is completed.
         jQuery(".sttip").remove();
         return;
     }
@@ -81,7 +82,7 @@ function addTooltip(stepId, useTimer=false) {
     stepTooltip = generateTooltip(step, tiplates);
 
     stepSelector = jQuery(step.action.selector);
-    if (stepSelector) {
+    if (stepSelector[0]) {
         if (step.action.onlyOneTip) { // Remove previous tooltip if only one tip is allowed
             jQuery(".sttip").remove();
         }
@@ -95,6 +96,12 @@ function addTooltip(stepId, useTimer=false) {
         if (useTimer && step.action.watchSelector) {
             timerId = setTimeout( () => { addTooltip(step.followers[0].next, useTimer); }, step.action.warningTimeout);
         }
+    } else { // Element not found based on selector, may be things changed on website.
+        // Enhancement: Use watchdog timer to move to next step to continue guide.
+        if (step.action.watchDog) {
+            timerId = setTimeout( () => { addTooltip(step.followers[0].next, useTimer); }, step.action.wdInterval);
+        }
+        // TODO: (Enhancement) Alert system/stakeholders regarding this, so they can update steps or fix website.
     }
 }
 
