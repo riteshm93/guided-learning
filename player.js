@@ -1,5 +1,6 @@
 var guideSteps = [];
 var tiplates = {};
+var timerId;
 
 
 /**
@@ -10,18 +11,19 @@ var tiplates = {};
  * Finally get guided steps data and use callback to process guide data and start guided learning on current website.  
 */
 function initGuidedLearning() {
-    var jqueryScript = document.createElement("script");
-    jqueryScript.src = "https://code.jquery.com/jquery-3.5.1.min.js";
-    document.body.appendChild(jqueryScript);
-
     var guidedLearningCssLink = document.createElement("link");
     guidedLearningCssLink.rel = "stylesheet";
     guidedLearningCssLink.href = "https://guidedlearning.oracle.com/player/latest/static/css/stTip.css";
     document.body.appendChild(guidedLearningCssLink);
 
-    var guideDataScript = document.createElement("script");
-    guideDataScript.src = "https://guidedlearning.oracle.com/player/latest/api/scenario/get/v_IlPvRLRWObwLnV5sTOaw/5szm2kaj/?callback=processGuideData";
-    document.body.appendChild(guideDataScript);
+    var jqueryScript = document.createElement("script");
+    jqueryScript.src = "https://code.jquery.com/jquery-3.5.1.min.js";
+    document.body.appendChild(jqueryScript);
+    jqueryScript.onload = () => {
+        var guideDataScript = document.createElement("script");
+        guideDataScript.src = "https://guidedlearning.oracle.com/player/latest/api/scenario/get/v_IlPvRLRWObwLnV5sTOaw/5szm2kaj/?callback=processGuideData&refresh=true&env=dev&type=startPanel&vars%5Btype%5D=startPanel&sid=none&_=1582203987867";
+        document.body.appendChild(guideDataScript);
+    };
 }
 
 
@@ -58,16 +60,25 @@ function processGuideData(guideDataResponse) {
  * Add tooltip for given step id.
  * 
  * @param {String}      stepId
+ * @param {Boolean}     [useTimer=false] optional boolean flag to use timer to auto move to next step
 */
-function addTooltip(stepId) {
+function addTooltip(stepId, useTimer=false) {
+    clearTimeout(timerId); // Clear any existing timer for showing next steps
+
     step = guideSteps.filter(step => step.id === stepId)[0];
+
+    if (!step) {
+        // TODO: (Enhancement) Ideally this should not happen, capture error using sentry or some other tool for such cases
+        alert("Invalid step");
+        return;
+    }
 
     if (step.action.type == "closeScenario") {
         jQuery(".sttip").remove();
         return;
     }
 
-    stepTooltip = generateTooltip(step);
+    stepTooltip = generateTooltip(step, tiplates);
 
     stepSelector = jQuery(step.action.selector);
     if (stepSelector) {
@@ -80,10 +91,10 @@ function addTooltip(stepId) {
             addTooltipEventHandlers(step);
         }
 
-        // TODO: Possible Enhancement? automated flow to next steps
-        // if (step.action.watchSelector) {
-        //     setTimeout( () => { addTooltip(step.followers[0].next); }, step.action.warningTimeout);
-        // }
+        // Enhancement: automated flow for next steps based on watchSelector and warningTimeout values
+        if (useTimer && step.action.watchSelector) {
+            timerId = setTimeout( () => { addTooltip(step.followers[0].next, useTimer); }, step.action.warningTimeout);
+        }
     }
 }
 
@@ -96,7 +107,7 @@ function addTooltip(stepId) {
  * @returns {Object}    tooltip element
 */
 function getTooltipElement(stepId) {
-    return document.querySelector('[guided-learning-tooltip-step-id="' + stepId + '"]');
+    return document.querySelector('[gguided-learning-step-id="' + stepId + '"]');
 }
 
 
@@ -110,8 +121,8 @@ function getTooltipElement(stepId) {
  * @param {Object}      step
 */
 function addTooltipEventHandlers(step) {
-    tooltipEl = getTooltipElement(step.id);
-    tooltipEl.querySelector('[data-iridize-role="prevBt"]').onclick = () => {
+    guideTooltipEl = getTooltipElement(step.id);
+    guideTooltipEl.querySelector('[data-iridize-role="prevBt"]').onclick = () => {
         previousStep = guideSteps.filter(s => (s.followers[0] || {})["next"] === step.id)[0];
         if (previousStep) {
             addTooltip(previousStep.id);
@@ -122,11 +133,11 @@ function addTooltipEventHandlers(step) {
         }
     }
 
-    tooltipEl.querySelector('[data-iridize-role="nextBt"]').onclick = () => {
+    guideTooltipEl.querySelector('[data-iridize-role="nextBt"]').onclick = () => {
         addTooltip(step.followers[0].next);
     }
 
-    tooltipEl.querySelector('[data-iridize-role="closeBt"]').onclick = () => {
+    guideTooltipEl.querySelector('[data-iridize-role="closeBt"]').onclick = () => {
         jQuery(".sttip").remove();
     }
 }
@@ -138,16 +149,17 @@ function addTooltipEventHandlers(step) {
  * Also add class based on step classes and placement data.
  *
  * @param {Object}      step
+ * @param {Object}      tiplates
  *
  * @returns {String}    tooltip data for given step
 */
-function generateTooltip(step) {
+function generateTooltip(step, tiplates) {
     var tiplate = tiplates[step.action.type];
     var tooltipContent = '<div class="tooltip in"><div class="tooltip-arrow"></div><div class="tooltip-arrow second-arrow"></div><div class="popover-inner"></div>' + tiplate + '</div></div>';
 
     var el = document.createElement('div');
     el.setAttribute("class", "sttip");
-    el.setAttribute("guided-learning-tooltip-step-id", step.id);
+    el.setAttribute("gguided-learning-step-id", step.id);
     // TODO: Improve styling for tooltip positioning
     el.setAttribute("style", "display: inline-block; position: absolute;");
     el.innerHTML = tooltipContent;
@@ -155,6 +167,7 @@ function generateTooltip(step) {
     tooltipEl = el.querySelector('.tooltip');
     tooltipEl.classList.add(...step.action.classes.split(" "));
     tooltipEl.classList.add(step.action.placement);
+    tooltipEl.setAttribute("style", "background: white;");
 
     el.querySelector('[data-iridize-role="stepCount"]').append(step.action.stepOrdinal);
     el.querySelector('[data-iridize-role="stepsCount"]').append(guideSteps.length);
@@ -166,6 +179,3 @@ function generateTooltip(step) {
 
     return el
 }
-
-
-initGuidedLearning();

@@ -26,7 +26,7 @@ First of all, make sure you have all prerequisites installed:
 var s = document.createElement("script");
 s.src = "http://127.0.0.1:8080/player.js";
 s.type = "text/javascript";
-document.body.appendChild(s);
+document.body.appendChild(s).onload = () => { initGuidedLearning(); };
 ```
 
 **Enjoy this Guided Learning Solution :)**
