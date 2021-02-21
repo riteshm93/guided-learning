@@ -27,7 +27,7 @@ function initGuidedLearning() {
 
 /**
  * Process guide data
- * 
+ *
  * Store guideSteps and tiplates.
  * Calls add tooltip for first step.
  * Alerts if data is invalid.
@@ -62,7 +62,11 @@ function processGuideData(guideDataResponse) {
 function addTooltip(stepId) {
     step = guideSteps.filter(step => step.id === stepId)[0];
 
-    // TODO: Handle when type is closeScenario
+    if (step.action.type == "closeScenario") {
+        jQuery(".sttip").remove();
+        return;
+    }
+
     stepTooltip = generateTooltip(step);
 
     stepSelector = jQuery(step.action.selector);
@@ -73,28 +77,13 @@ function addTooltip(stepId) {
 
         if (!getTooltipElement(step.id)) { // Check and add tooltip if not already present when multiple tip are allowed.
             stepSelector.after(stepTooltip);
-
-            // Add event handlers for tooltip buttons
-            tooltipEl = getTooltipElement(step.id);
-            tooltipEl.querySelector('[data-iridize-role="prevBt"]').onclick = () => {
-                previousStep = guideSteps.filter(step => (step.followers[0] || {})["next"] === stepId)[0]
-                if (previousStep) {
-                    addTooltip(previousStep.id);
-                }
-                // Reached first step of the guide
-                else if (confirm("You have reached the beginning of the guide\nClick OK to close the guide.\nClick Cancel to watch guide again.")) {
-                    jQuery(".sttip").remove();
-                }
-            }
-
-            tooltipEl.querySelector('[data-iridize-role="nextBt"]').onclick = () => {
-                addTooltip(step.followers[0].next);
-            }
-
-            tooltipEl.querySelector('[data-iridize-role="closeBt"]').onclick = () => {
-                jQuery(".sttip").remove();
-            }
+            addTooltipEventHandlers(step);
         }
+
+        // TODO: Possible Enhancement? automated flow to next steps
+        // if (step.action.watchSelector) {
+        //     setTimeout( () => { addTooltip(step.followers[0].next); }, step.action.warningTimeout);
+        // }
     }
 }
 
@@ -103,20 +92,53 @@ function addTooltip(stepId) {
  * Get tooltip element for a step id.
  *
  * @param {String}      stepId
+ *
+ * @returns {Object}    tooltip element
 */
 function getTooltipElement(stepId) {
-    return document.querySelector('[guided-learning-tooltip-step-id="'+stepId+'"]')
+    return document.querySelector('[guided-learning-tooltip-step-id="' + stepId + '"]');
 }
 
 
 /**
+ * Add event handlers for tooltip button clicks.
+ *
+ * clicking next call addTooltip for next step.
+ * clicking previous call addTooltip for previous step.
+ * clicking close clears all tooltip data.
+ *
+ * @param {Object}      step
+*/
+function addTooltipEventHandlers(step) {
+    tooltipEl = getTooltipElement(step.id);
+    tooltipEl.querySelector('[data-iridize-role="prevBt"]').onclick = () => {
+        previousStep = guideSteps.filter(s => (s.followers[0] || {})["next"] === step.id)[0];
+        if (previousStep) {
+            addTooltip(previousStep.id);
+        }
+        // Reached first step of the guide
+        else if (confirm("You have reached the beginning of the guide\nClick OK to close the guide.\nClick Cancel to watch guide again.")) {
+            jQuery(".sttip").remove();
+        }
+    }
+
+    tooltipEl.querySelector('[data-iridize-role="nextBt"]').onclick = () => {
+        addTooltip(step.followers[0].next);
+    }
+
+    tooltipEl.querySelector('[data-iridize-role="closeBt"]').onclick = () => {
+        jQuery(".sttip").remove();
+    }
+}
+
+/**
  * Generate tooltip data for given step.
- * 
+ *
  * Uses step data in default template and tiplate to generate tooltip HTML data.
  * Also add class based on step classes and placement data.
- * 
+ *
  * @param {Object}      step
- * 
+ *
  * @returns {String}    tooltip data for given step
 */
 function generateTooltip(step) {
@@ -137,6 +159,10 @@ function generateTooltip(step) {
     el.querySelector('[data-iridize-role="stepCount"]').append(step.action.stepOrdinal);
     el.querySelector('[data-iridize-role="stepsCount"]').append(guideSteps.length);
     el.querySelector('[data-iridize-id="content"]').innerHTML = step.action.contents["#content"];
+
+    for (roleButton in step.action.roleTexts) {
+        el.querySelector('[data-iridize-role="'+roleButton+'"]').innerText = step.action.roleTexts[roleButton]
+    }
 
     return el
 }
